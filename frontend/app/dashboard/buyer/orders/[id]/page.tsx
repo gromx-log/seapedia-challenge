@@ -35,6 +35,15 @@ interface OrderDetail {
   };
   items: OrderItem[];
   statusHistory: StatusHistory[];
+  deliveryJob?: {
+    id: string;
+    status: string;
+    takenAt: string | null;
+    completedAt: string | null;
+    driver?: {
+      username: string;
+    } | null;
+  } | null;
 }
 
 export default function BuyerOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -164,6 +173,27 @@ export default function BuyerOrderDetailPage({ params }: { params: Promise<{ id:
                   <span>{formatCurrency(order.deliveryFee)}</span>
                 </div>
               </div>
+
+              {order.deliveryJob && (
+                <div className="bg-neutral-950 border border-neutral-850 p-4 rounded-2xl text-xs text-neutral-400 space-y-2">
+                  <div className="flex justify-between text-neutral-300">
+                    <span className="font-semibold">Courier Assigned</span>
+                    <span className="font-bold text-indigo-400">{order.deliveryJob.driver?.username || "Awaiting courier acceptance"}</span>
+                  </div>
+                  {order.deliveryJob.takenAt && (
+                    <div className="flex justify-between text-neutral-300 border-t border-neutral-850/60 pt-2">
+                      <span>Pickup Time</span>
+                      <span>{new Date(order.deliveryJob.takenAt).toLocaleString("id-ID")}</span>
+                    </div>
+                  )}
+                  {order.deliveryJob.completedAt && (
+                    <div className="flex justify-between text-neutral-300 border-t border-neutral-850/60 pt-2">
+                      <span>Completed Time</span>
+                      <span>{new Date(order.deliveryJob.completedAt).toLocaleString("id-ID")}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
           </div>

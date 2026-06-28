@@ -41,6 +41,15 @@ export class AdminDiscountController {
     }
   }
 
+  static async getVoucherById(req: Request, res: Response) {
+    try {
+      const voucher = await AdminService.getVoucherById(req.params.id);
+      return res.status(200).json(voucher);
+    } catch (error: any) {
+      return res.status(404).json({ error: error.message || "Voucher not found" });
+    }
+  }
+
   static async createPromo(req: Request, res: Response) {
     try {
       const parsed = promoSchema.safeParse(req.body);
@@ -61,6 +70,15 @@ export class AdminDiscountController {
       return res.status(200).json(promos);
     } catch (error: any) {
       return res.status(500).json({ error: error.message || "Failed to list promos" });
+    }
+  }
+
+  static async getPromoById(req: Request, res: Response) {
+    try {
+      const promo = await AdminService.getPromoById(req.params.id);
+      return res.status(200).json(promo);
+    } catch (error: any) {
+      return res.status(404).json({ error: error.message || "Promo not found" });
     }
   }
 }

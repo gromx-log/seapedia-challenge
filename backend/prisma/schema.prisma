@@ -41,6 +41,7 @@ enum DiscountKind {
 enum WalletTxType {
   TOPUP
   PAYMENT
+  REFUND
 }
 
 model User {
@@ -54,6 +55,7 @@ model User {
   addresses    Address[]
   cart         Cart?
   ordersAsBuyer Order[]   @relation("BuyerOrders")
+  deliveryJobs DeliveryJob[] @relation("DriverJobs")
   createdAt    DateTime   @default(now())
 }
 
@@ -155,6 +157,7 @@ model Order {
   status         OrderStatus           @default(SEDANG_DIKEMAS)
   items          OrderItem[]
   statusHistory  OrderStatusHistory[]
+  deliveryJob    DeliveryJob?
   createdAt      DateTime              @default(now())
 }
 
@@ -202,4 +205,31 @@ model Review {
   rating       Int      // 1-5, validated in service layer
   comment      String   // sanitized before storage AND before render — belt & suspenders
   createdAt    DateTime @default(now())
+}
+
+enum DeliveryJobStatus {
+  AVAILABLE
+  TAKEN
+  COMPLETED
+  CANCELLED
+}
+
+model DeliveryJob {
+  id            String            @id @default(uuid())
+  orderId       String            @unique
+  order         Order             @relation(fields: [orderId], references: [id])
+  status        DeliveryJobStatus @default(AVAILABLE)
+  driverId      String?
+  driver        User?             @relation("DriverJobs", fields: [driverId], references: [id])
+  takenAt       DateTime?
+  completedAt   DateTime?
+  earningAmount Int?              // snapshot = round(order.deliveryFee * 0.8) at completion time
+  createdAt     DateTime          @default(now())
+}
+
+// Single-row table for simulating clock
+model SystemClock {
+  id        Int      @id @default(1)
+  offsetMs  Int      @default(0)
+  updatedAt DateTime @updatedAt
 }

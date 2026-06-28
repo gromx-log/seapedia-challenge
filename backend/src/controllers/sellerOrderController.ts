@@ -1,6 +1,11 @@
 import { Request, Response } from "express";
 import { SellerService } from "../services/sellerService";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
+import { z } from "zod";
+
+const paramsSchema = z.object({
+  id: z.string().uuid(),
+});
 
 export class SellerOrderController {
   static async list(req: Request, res: Response) {
@@ -20,8 +25,12 @@ export class SellerOrderController {
       const authReq = req as AuthenticatedRequest;
       if (!authReq.user) return res.status(401).json({ error: "Unauthorized" });
 
-      const { id } = req.params;
-      const order = await SellerService.processOrder(authReq.user.userId, id);
+      const parsed = paramsSchema.safeParse(req.params);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid order ID format" });
+      }
+
+      const order = await SellerService.processOrder(authReq.user.userId, parsed.data.id);
       return res.status(200).json(order);
     } catch (error: any) {
       return res.status(400).json({ error: error.message || "Failed to process order" });

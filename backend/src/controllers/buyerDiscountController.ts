@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import prisma from "../config/prismaClient";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 import { z } from "zod";
+import { getNow } from "../utils/systemClock";
 
 const validateDiscountSchema = z.object({
   code: z.string().min(1),
@@ -19,7 +20,7 @@ export class BuyerDiscountController {
       }
 
       const cleanCode = parsed.data.code.trim().toUpperCase();
-      const now = new Date();
+      const now = await getNow();
 
       // 1. Check Voucher table first
       const voucher = await prisma.voucher.findUnique({

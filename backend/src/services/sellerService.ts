@@ -1,4 +1,7 @@
 import prisma from "../config/prismaClient";
+import { Prisma } from "@prisma/client";
+import { getNow } from "../utils/systemClock";
+import { sanitizeHTML } from "../utils/sanitize";
 
 export class SellerService {
   static async getStore(userId: string) {
@@ -30,9 +33,11 @@ export class SellerService {
       throw new Error("Store name is already taken. Please choose another name.");
     }
 
+    const sanitizedName = sanitizeHTML(name);
+
     const store = await prisma.store.create({
       data: {
-        name,
+        name: sanitizedName,
         ownerId: userId,
       },
     });
@@ -63,9 +68,11 @@ export class SellerService {
       }
     }
 
+    const sanitizedName = sanitizeHTML(name);
+
     const updated = await prisma.store.update({
       where: { id: store.id },
-      data: { name },
+      data: { name: sanitizedName },
     });
 
     return updated;
@@ -114,10 +121,10 @@ export class SellerService {
 
     const product = await prisma.product.create({
       data: {
-        name,
+        name: sanitizeHTML(name),
         price,
         stock,
-        description,
+        description: description ? sanitizeHTML(description) : null,
         storeId: store.id,
         isActive: true,
       },
@@ -155,9 +162,13 @@ export class SellerService {
       throw new Error("Stock cannot be negative");
     }
 
+    const sanitizedData = { ...data };
+    if (data.name !== undefined) sanitizedData.name = sanitizeHTML(data.name);
+    if (data.description !== undefined) sanitizedData.description = data.description ? sanitizeHTML(data.description) : undefined;
+
     const updated = await prisma.product.update({
       where: { id: productId },
-      data,
+      data: sanitizedData,
     });
 
     return updated;
@@ -218,6 +229,12 @@ export class SellerService {
       include: {
         buyer: { select: { id: true, username: true, email: true } },
         items: true,
+        statusHistory: { orderBy: { changedAt: "asc" } },
+        deliveryJob: {
+          include: {
+            driver: { select: { username: true } },
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -247,7 +264,9 @@ export class SellerService {
       throw new Error(`Cannot process order. Active status is ${order.status}, but it must be SEDANG_DIKEMAS.`);
     }
 
-    return prisma.$transaction(async (tx) => {
+    const now = await getNow();
+
+    return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const updatedOrder = await tx.order.update({
         where: { id: orderId },
         data: {
@@ -260,6 +279,15 @@ export class SellerService {
           orderId,
           status: "MENUNGGU_PENGIRIM",
           note: "Order packaged by seller. Awaiting driver pickup.",
+          changedAt: now,
+        },
+      });
+
+      await tx.deliveryJob.create({
+        data: {
+          orderId,
+          status: "AVAILABLE",
+          createdAt: now,
         },
       });
 

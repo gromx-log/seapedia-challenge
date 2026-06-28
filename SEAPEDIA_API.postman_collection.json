@@ -1,0 +1,408 @@
+{
+  "info": {
+    "_postman_id": "seapedia-api-collection",
+    "name": "SEAPEDIA API",
+    "description": "Full API collection for SEAPEDIA multi-role marketplace (COMPFEST 18). All requests use cookie-based JWT authentication. Run the backend at http://localhost:4000.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "BASE_URL", "value": "http://localhost:4000", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{BASE_URL}}/api/auth/register",
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"newuser\",\n  \"email\": \"newuser@example.com\",\n  \"password\": \"password123\",\n  \"roles\": [\"BUYER\"]\n}" },
+            "description": "Create a new account. Roles can include: BUYER, SELLER, DRIVER (not ADMIN — Admin is seeded only)."
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{BASE_URL}}/api/auth/login",
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"buyer1\",\n  \"password\": \"buyer123\"\n}" },
+            "description": "Login. If user has multiple roles, returns requiresRoleSelection:true with a pre-auth token. Otherwise sets the session cookie directly."
+          }
+        },
+        {
+          "name": "Select Role",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{BASE_URL}}/api/auth/select-role",
+            "body": { "mode": "raw", "raw": "{\n  \"role\": \"BUYER\"\n}" },
+            "description": "Exchange pre-auth token for a full session JWT. Cookie must be sent with credentials."
+          }
+        },
+        {
+          "name": "Switch Role",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{BASE_URL}}/api/auth/switch-role",
+            "body": { "mode": "raw", "raw": "{\n  \"role\": \"SELLER\"\n}" },
+            "description": "Switch active role in an existing session. Requires Auth."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": "{{BASE_URL}}/api/auth/logout",
+            "description": "Clear the session cookie."
+          }
+        },
+        {
+          "name": "Get Me",
+          "request": {
+            "method": "GET",
+            "url": "{{BASE_URL}}/api/auth/me",
+            "description": "Returns { id, username, roles, activeRole }."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public",
+      "item": [
+        {
+          "name": "List Reviews",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/reviews" }
+        },
+        {
+          "name": "Submit Review",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{BASE_URL}}/api/reviews",
+            "body": { "mode": "raw", "raw": "{\n  \"reviewerName\": \"Budi\",\n  \"rating\": 5,\n  \"comment\": \"Aplikasinya bagus sekali!\"\n}" },
+            "description": "No auth required. Public application review (not product review)."
+          }
+        },
+        {
+          "name": "List Products",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/products" }
+        },
+        {
+          "name": "Get Product Detail",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/products/:id" }
+        },
+        {
+          "name": "Get Store Detail",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/stores/:id" }
+        }
+      ]
+    },
+    {
+      "name": "Seller",
+      "item": [
+        {
+          "name": "Create Store",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{BASE_URL}}/api/seller/store",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"My Awesome Store\"\n}" },
+            "description": "Requires active role = SELLER. Store name must be unique."
+          }
+        },
+        {
+          "name": "Update Store",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{BASE_URL}}/api/seller/store",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"New Store Name\"\n}" }
+          }
+        },
+        {
+          "name": "List Products",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/seller/products" }
+        },
+        {
+          "name": "Create Product",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{BASE_URL}}/api/seller/products",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Produk Baru\",\n  \"price\": 75000,\n  \"stock\": 15,\n  \"description\": \"Deskripsi produk baru\"\n}" }
+          }
+        },
+        {
+          "name": "Update Product",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{BASE_URL}}/api/seller/products/:id",
+            "body": { "mode": "raw", "raw": "{\n  \"price\": 80000,\n  \"stock\": 20\n}" }
+          }
+        },
+        {
+          "name": "Delete Product",
+          "request": { "method": "DELETE", "url": "{{BASE_URL}}/api/seller/products/:id" }
+        },
+        {
+          "name": "List Store Orders",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/seller/orders", "description": "Returns orders for this seller's store including status history and delivery job info." }
+        },
+        {
+          "name": "Process Order",
+          "request": {
+            "method": "PATCH",
+            "url": "{{BASE_URL}}/api/seller/orders/:id/process",
+            "description": "Move order from SEDANG_DIKEMAS → MENUNGGU_PENGIRIM. Creates a DeliveryJob automatically."
+          }
+        },
+        {
+          "name": "Seller Income Report",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/seller/reports/income" }
+        }
+      ]
+    },
+    {
+      "name": "Buyer",
+      "item": [
+        {
+          "name": "Get Wallet",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/buyer/wallet" }
+        },
+        {
+          "name": "Top Up Wallet",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{BASE_URL}}/api/buyer/wallet/topup",
+            "body": { "mode": "raw", "raw": "{\n  \"amount\": 100000\n}" }
+          }
+        },
+        {
+          "name": "Wallet Transaction History",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/buyer/wallet/transactions" }
+        },
+        {
+          "name": "List Addresses",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/buyer/addresses" }
+        },
+        {
+          "name": "Create Address",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{BASE_URL}}/api/buyer/addresses",
+            "body": { "mode": "raw", "raw": "{\n  \"label\": \"Rumah\",\n  \"recipientName\": \"Budi Santoso\",\n  \"phone\": \"081234567890\",\n  \"fullAddress\": \"Jl. Sudirman No. 1, Jakarta\",\n  \"isDefault\": true\n}" }
+          }
+        },
+        {
+          "name": "Update Address",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{BASE_URL}}/api/buyer/addresses/:id",
+            "body": { "mode": "raw", "raw": "{\n  \"fullAddress\": \"Jl. Sudirman No. 2, Jakarta\"\n}" }
+          }
+        },
+        {
+          "name": "Delete Address",
+          "request": { "method": "DELETE", "url": "{{BASE_URL}}/api/buyer/addresses/:id" }
+        },
+        {
+          "name": "Get Cart",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/buyer/cart" }
+        },
+        {
+          "name": "Add Item to Cart",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{BASE_URL}}/api/buyer/cart/items",
+            "body": { "mode": "raw", "raw": "{\n  \"productId\": \"<product-uuid>\",\n  \"quantity\": 2\n}" },
+            "description": "Single-store rule enforced: adding product from a different store returns 409 Conflict."
+          }
+        },
+        {
+          "name": "Update Cart Item",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{BASE_URL}}/api/buyer/cart/items/:id",
+            "body": { "mode": "raw", "raw": "{\n  \"quantity\": 3\n}" }
+          }
+        },
+        {
+          "name": "Remove Cart Item",
+          "request": { "method": "DELETE", "url": "{{BASE_URL}}/api/buyer/cart/items/:id" }
+        },
+        {
+          "name": "Clear Cart",
+          "request": { "method": "DELETE", "url": "{{BASE_URL}}/api/buyer/cart" }
+        },
+        {
+          "name": "Validate Discount Code",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{BASE_URL}}/api/buyer/discounts/validate",
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"SEAPEDIA10\",\n  \"subtotal\": 150000\n}" },
+            "description": "Preview discount effect before checkout."
+          }
+        },
+        {
+          "name": "Checkout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{BASE_URL}}/api/buyer/checkout",
+            "body": { "mode": "raw", "raw": "{\n  \"deliveryMethod\": \"INSTANT\",\n  \"discountCode\": \"SEAPEDIA10\"\n}" },
+            "description": "Delivery methods: INSTANT (Rp15k), NEXT_DAY (Rp8k), REGULAR (Rp5k). Pricing: subtotal → discount → delivery fee → PPN 12% on post-discount subtotal → total."
+          }
+        },
+        {
+          "name": "Order History",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/buyer/orders" }
+        },
+        {
+          "name": "Order Detail",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/buyer/orders/:id", "description": "Returns order + status timeline + delivery job info (driver, timestamps)." }
+        },
+        {
+          "name": "Buyer Spending Report",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/buyer/reports/spending" }
+        }
+      ]
+    },
+    {
+      "name": "Driver",
+      "item": [
+        {
+          "name": "List Available Jobs",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/driver/jobs", "description": "Only returns jobs with status=AVAILABLE (order is MENUNGGU_PENGIRIM)." }
+        },
+        {
+          "name": "Job History (All Statuses)",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/driver/jobs/history", "description": "Returns all of this driver's jobs. Frontend filters TAKEN (active) vs COMPLETED/CANCELLED (history)." }
+        },
+        {
+          "name": "Earnings Summary",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/driver/jobs/earnings", "description": "Returns { totalEarnings, completedCount } from completed jobs. Earning = 80% of delivery fee." }
+        },
+        {
+          "name": "Job Detail",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/driver/jobs/:id" }
+        },
+        {
+          "name": "Take Job",
+          "request": {
+            "method": "POST",
+            "url": "{{BASE_URL}}/api/driver/jobs/:id/take",
+            "description": "Atomic take. Returns 409 Conflict if already taken by another driver. Moves order to SEDANG_DIKIRIM."
+          }
+        },
+        {
+          "name": "Complete Job",
+          "request": {
+            "method": "POST",
+            "url": "{{BASE_URL}}/api/driver/jobs/:id/complete",
+            "description": "Only the driver who took the job can complete it (403 otherwise). Moves order to PESANAN_SELESAI. Records earningAmount = round(deliveryFee * 0.8)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin — Discounts",
+      "item": [
+        {
+          "name": "Create Voucher",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{BASE_URL}}/api/admin/vouchers",
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"SUMMER30\",\n  \"discountKind\": \"PERCENT\",\n  \"value\": 30,\n  \"usageLimit\": 50,\n  \"expiresAt\": \"2026-12-31T23:59:59.000Z\"\n}" },
+            "description": "discountKind: PERCENT (0-100) or FLAT (Rupiah amount). Codes must be globally unique across vouchers and promos."
+          }
+        },
+        {
+          "name": "List Vouchers",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/admin/vouchers" }
+        },
+        {
+          "name": "Get Voucher Detail",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/admin/vouchers/:id" }
+        },
+        {
+          "name": "Create Promo",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{BASE_URL}}/api/admin/promos",
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"PROMO50K\",\n  \"discountKind\": \"FLAT\",\n  \"value\": 50000,\n  \"expiresAt\": \"2026-12-31T23:59:59.000Z\"\n}" },
+            "description": "Promo has no usageLimit — only an expiry date. Vouchers and Promos cannot be combined."
+          }
+        },
+        {
+          "name": "List Promos",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/admin/promos" }
+        },
+        {
+          "name": "Get Promo Detail",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/admin/promos/:id" }
+        }
+      ]
+    },
+    {
+      "name": "Admin — Monitoring",
+      "item": [
+        {
+          "name": "All Users",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/admin/monitoring/users" }
+        },
+        {
+          "name": "All Stores",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/admin/monitoring/stores" }
+        },
+        {
+          "name": "All Products",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/admin/monitoring/products" }
+        },
+        {
+          "name": "All Orders",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/admin/monitoring/orders" }
+        },
+        {
+          "name": "All Delivery Jobs",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/admin/monitoring/delivery-jobs" }
+        },
+        {
+          "name": "Overdue Orders",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/admin/monitoring/overdue-orders", "description": "Returns { overdue: [...orders past SLA], history: [...orders already DIKEMBALIKAN] }." }
+        }
+      ]
+    },
+    {
+      "name": "Admin — System Clock",
+      "item": [
+        {
+          "name": "Get Simulated Time",
+          "request": { "method": "GET", "url": "{{BASE_URL}}/api/admin/system-clock", "description": "Returns { offsetMs, simulatedTime }." }
+        },
+        {
+          "name": "Advance Clock + Run Overdue Sweep",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{BASE_URL}}/api/admin/system-clock/advance",
+            "body": { "mode": "raw", "raw": "{\n  \"days\": 5\n}" },
+            "description": "Advances simulated clock by N days AND immediately runs overdue sweep. Returns { advancedDays, simulatedTime, sweptOrdersCount, sweptOrderIds }. SLA: INSTANT=1day, NEXT_DAY=2days, REGULAR=4days."
+          }
+        }
+      ]
+    }
+  ]
+}

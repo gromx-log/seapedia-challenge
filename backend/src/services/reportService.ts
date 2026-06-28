@@ -2,8 +2,11 @@ import prisma from "../config/prismaClient";
 
 export class ReportService {
   static async getBuyerSpending(buyerId: string) {
-    const orders = await prisma.order.findMany({
-      where: { buyerId },
+        const orders = await prisma.order.findMany({
+      where: {
+        buyerId,
+        status: { not: "DIKEMBALIKAN" },
+      },
       include: {
         store: { select: { name: true } },
       },
@@ -65,7 +68,10 @@ export class ReportService {
     }
 
     const orders = await prisma.order.findMany({
-      where: { storeId: store.id },
+      where: {
+        storeId: store.id,
+        status: { not: "DIKEMBALIKAN" },
+      },
       include: {
         buyer: { select: { username: true } },
       },

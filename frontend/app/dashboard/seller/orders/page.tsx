@@ -2,7 +2,26 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ShoppingCart, Calendar, User, Package, ShieldCheck, AlertTriangle, CheckCircle } from "lucide-react";
+import {
+  ArrowLeft, ShoppingCart, Calendar, User, Package,
+  ShieldCheck, AlertTriangle, CheckCircle, Clock, Truck
+} from "lucide-react";
+
+interface StatusHistoryItem {
+  id: string;
+  status: string;
+  note: string | null;
+  changedAt: string;
+}
+
+interface DeliveryJob {
+  id: string;
+  status: string;
+  driver: { username: string } | null;
+  takenAt: string | null;
+  completedAt: string | null;
+  earningAmount: number | null;
+}
 
 interface Order {
   id: string;
@@ -24,7 +43,25 @@ interface Order {
     priceSnapshot: number;
     quantity: number;
   }[];
+  statusHistory: StatusHistoryItem[];
+  deliveryJob: DeliveryJob | null;
 }
+
+const STATUS_LABELS: Record<string, string> = {
+  SEDANG_DIKEMAS: "Sedang Dikemas",
+  MENUNGGU_PENGIRIM: "Menunggu Pengirim",
+  SEDANG_DIKIRIM: "Sedang Dikirim",
+  PESANAN_SELESAI: "Pesanan Selesai",
+  DIKEMBALIKAN: "Dikembalikan",
+};
+
+const STATUS_COLOR: Record<string, string> = {
+  SEDANG_DIKEMAS: "bg-amber-950/40 text-amber-400 border-amber-900/50",
+  MENUNGGU_PENGIRIM: "bg-blue-950/40 text-blue-400 border-blue-900/50",
+  SEDANG_DIKIRIM: "bg-indigo-950/40 text-indigo-400 border-indigo-900/50",
+  PESANAN_SELESAI: "bg-emerald-950/40 text-emerald-400 border-emerald-900/50",
+  DIKEMBALIKAN: "bg-rose-950/40 text-rose-400 border-rose-900/50",
+};
 
 export default function SellerOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -32,6 +69,7 @@ export default function SellerOrdersPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -103,7 +141,7 @@ export default function SellerOrdersPage() {
             <ShoppingCart className="w-8 h-8 text-indigo-400" />
             Incoming Orders
           </h1>
-          <p className="text-xs text-neutral-400">Review incoming buyer purchases and process logistics status</p>
+          <p className="text-xs text-neutral-400">Review incoming buyer purchases, process logistics, and track delivery status</p>
         </div>
 
         {/* Notifications */}
@@ -149,8 +187,8 @@ export default function SellerOrdersPage() {
                       })}
                     </span>
 
-                    <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded border bg-indigo-950/40 text-indigo-400 border-indigo-900/50">
-                      {order.status}
+                    <span className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded border ${STATUS_COLOR[order.status] || "bg-neutral-800 text-neutral-400 border-neutral-700"}`}>
+                      {STATUS_LABELS[order.status] || order.status}
                     </span>
 
                     <span className="text-[9px] font-bold uppercase bg-neutral-950 border border-neutral-800 text-neutral-400 px-2 py-0.5 rounded">
@@ -181,6 +219,37 @@ export default function SellerOrdersPage() {
                         </div>
                       ))}
                     </div>
+
+                    {/* Delivery tracking info */}
+                    {order.deliveryJob && (
+                      <div className="mt-4 p-3 bg-neutral-950/40 border border-neutral-800 rounded-xl space-y-1.5">
+                        <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-1.5">
+                          <Truck className="w-3.5 h-3.5" /> Delivery Info
+                        </span>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <span className="text-neutral-500">Driver:</span>
+                            <span className="ml-2 text-white font-semibold">{order.deliveryJob.driver?.username || "Not yet assigned"}</span>
+                          </div>
+                          <div>
+                            <span className="text-neutral-500">Job Status:</span>
+                            <span className="ml-2 font-bold text-indigo-400">{order.deliveryJob.status}</span>
+                          </div>
+                          {order.deliveryJob.takenAt && (
+                            <div>
+                              <span className="text-neutral-500">Picked up:</span>
+                              <span className="ml-2 text-neutral-300">{new Date(order.deliveryJob.takenAt).toLocaleString("id-ID")}</span>
+                            </div>
+                          )}
+                          {order.deliveryJob.completedAt && (
+                            <div>
+                              <span className="text-neutral-500">Delivered:</span>
+                              <span className="ml-2 text-emerald-400">{new Date(order.deliveryJob.completedAt).toLocaleString("id-ID")}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Calculations & Actions */}
@@ -201,7 +270,7 @@ export default function SellerOrdersPage() {
                         <span>{formatCurrency(order.total - order.deliveryFee - order.ppn)}</span>
                       </div>
                       <div className="text-[9px] text-neutral-500 italic mt-1.5">
-                        *Note: Delivery fees and PPN are handled by the system.
+                        *Delivery fees and PPN handled by system.
                       </div>
                     </div>
 
@@ -210,7 +279,7 @@ export default function SellerOrdersPage() {
                       <button
                         onClick={() => handleProcessOrder(order.id)}
                         disabled={processingId === order.id}
-                        className="w-full flex items-center justify-center gap-1.5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-650 hover:from-emerald-650 hover:to-teal-700 text-white font-semibold rounded-xl text-xs transition-colors cursor-pointer"
+                        className="w-full flex items-center justify-center gap-1.5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-semibold rounded-xl text-xs transition-colors cursor-pointer"
                       >
                         <ShieldCheck className="w-4 h-4" />
                         {processingId === order.id ? "Processing..." : "Process Order (Package)"}
@@ -219,6 +288,37 @@ export default function SellerOrdersPage() {
                   </div>
 
                 </div>
+
+                {/* Status Timeline (expandable) */}
+                {order.statusHistory && order.statusHistory.length > 0 && (
+                  <div className="border-t border-neutral-850 pt-4">
+                    <button
+                      onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
+                      className="text-[10px] font-bold text-neutral-400 hover:text-white uppercase tracking-wider flex items-center gap-1.5 transition-colors"
+                    >
+                      <Clock className="w-3.5 h-3.5" />
+                      {expandedOrder === order.id ? "Hide" : "Show"} Status Timeline ({order.statusHistory.length} steps)
+                    </button>
+
+                    {expandedOrder === order.id && (
+                      <div className="mt-3 space-y-2">
+                        {order.statusHistory.map((h, i) => (
+                          <div key={h.id} className="flex items-start gap-3 text-xs">
+                            <div className="flex flex-col items-center">
+                              <div className={`w-2.5 h-2.5 rounded-full mt-0.5 ${i === order.statusHistory.length - 1 ? "bg-indigo-500" : "bg-neutral-700"}`} />
+                              {i < order.statusHistory.length - 1 && <div className="w-px h-full bg-neutral-800 mt-1" />}
+                            </div>
+                            <div className="pb-3">
+                              <span className="font-bold text-neutral-200">{STATUS_LABELS[h.status] || h.status}</span>
+                              {h.note && <p className="text-neutral-500 mt-0.5">{h.note}</p>}
+                              <p className="text-neutral-600 mt-0.5">{new Date(h.changedAt).toLocaleString("id-ID")}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
               </div>
             ))}

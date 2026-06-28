@@ -7,6 +7,8 @@ async function main() {
   console.log("Seeding database...");
 
   // Clear existing data (in order of dependencies)
+  await prisma.deliveryJob.deleteMany({});
+  await prisma.systemClock.deleteMany({});
   await prisma.review.deleteMany({});
   await prisma.orderStatusHistory.deleteMany({});
   await prisma.orderItem.deleteMany({});
@@ -136,6 +138,22 @@ async function main() {
   });
   console.log("Seeded Buyer:", buyer.username);
 
+  // 3.5 Create Driver
+  const driverPasswordHash = await bcrypt.hash("driver123", saltRounds);
+  const driver = await prisma.user.create({
+    data: {
+      username: "driver1",
+      email: "driver1@seapedia.com",
+      passwordHash: driverPasswordHash,
+      roles: {
+        create: {
+          role: "DRIVER",
+        },
+      },
+    },
+  });
+  console.log("Seeded Driver:", driver.username);
+
   // 4. Seed Voucher & Promo
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 30); // 30 days from now
@@ -161,6 +179,15 @@ async function main() {
     },
   });
   console.log("Seeded Promo:", promo.code);
+
+  // 5. Seed SystemClock
+  await prisma.systemClock.create({
+    data: {
+      id: 1,
+      offsetMs: 0,
+    },
+  });
+  console.log("Initialized SystemClock with 0 offset");
 
   console.log("Database seeding completed successfully!");
 }

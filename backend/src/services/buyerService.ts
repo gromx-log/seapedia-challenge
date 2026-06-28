@@ -1,5 +1,7 @@
 import prisma from "../config/prismaClient";
 import { calculatePricing } from "../utils/pricing";
+import { getNow } from "../utils/systemClock";
+import { sanitizeHTML } from "../utils/sanitize";
 
 export class BuyerService {
   // ==========================================
@@ -40,6 +42,7 @@ export class BuyerService {
           type: "TOPUP",
           amount,
           note: `Top up Rp ${amount.toLocaleString("id-ID")}`,
+          createdAt: await getNow(),
         },
       });
 
@@ -92,6 +95,10 @@ export class BuyerService {
       return tx.address.create({
         data: {
           ...data,
+          label: data.label ? sanitizeHTML(data.label) : null,
+          recipientName: sanitizeHTML(data.recipientName),
+          phone: sanitizeHTML(data.phone),
+          fullAddress: sanitizeHTML(data.fullAddress),
           isDefault: finalIsDefault,
           userId,
         },
@@ -120,9 +127,15 @@ export class BuyerService {
         });
       }
 
+      const sanitizedData = { ...data };
+      if (data.label !== undefined) sanitizedData.label = data.label ? sanitizeHTML(data.label) : undefined;
+      if (data.recipientName !== undefined) sanitizedData.recipientName = sanitizeHTML(data.recipientName);
+      if (data.phone !== undefined) sanitizedData.phone = sanitizeHTML(data.phone);
+      if (data.fullAddress !== undefined) sanitizedData.fullAddress = sanitizeHTML(data.fullAddress);
+
       return tx.address.update({
         where: { id: addressId },
-        data,
+        data: sanitizedData,
       });
     });
   }
@@ -341,6 +354,7 @@ export class BuyerService {
     }
 
     return prisma.$transaction(async (tx) => {
+      const now = await getNow();
       // 1. Re-verify products stock and details
       let subtotal = 0;
       const orderItemsData = [];
@@ -375,7 +389,6 @@ export class BuyerService {
 
       if (discountCode && discountCode.trim() !== "") {
         const cleanCode = discountCode.trim().toUpperCase();
-        const now = new Date();
 
         // Check Voucher table first (takes precedence)
         const voucher = await tx.voucher.findUnique({
@@ -453,6 +466,7 @@ export class BuyerService {
           type: "PAYMENT",
           amount: pricing.total,
           note: `Payment for order of ${orderItemsData.length} item(s)`,
+          createdAt: now,
         },
       });
 
@@ -480,6 +494,7 @@ export class BuyerService {
           ppn: pricing.ppn,
           total: pricing.total,
           status: "SEDANG_DIKEMAS",
+          createdAt: now,
           items: {
             create: orderItemsData,
           },
@@ -487,6 +502,7 @@ export class BuyerService {
             create: {
               status: "SEDANG_DIKEMAS",
               note: "Order checked out successfully",
+              changedAt: now,
             },
           },
         },
@@ -531,6 +547,11 @@ export class BuyerService {
         store: { select: { id: true, name: true } },
         items: true,
         statusHistory: { orderBy: { changedAt: "asc" } },
+        deliveryJob: {
+          include: {
+            driver: { select: { username: true } },
+          },
+        },
       },
     });
 
