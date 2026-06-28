@@ -1,0 +1,205 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum RoleType {
+  ADMIN
+  SELLER
+  BUYER
+  DRIVER
+}
+
+enum DeliveryMethod {
+  INSTANT
+  NEXT_DAY
+  REGULAR
+}
+
+enum OrderStatus {
+  SEDANG_DIKEMAS
+  MENUNGGU_PENGIRIM
+  SEDANG_DIKIRIM      // unused until Level 5, kept for enum completeness
+  PESANAN_SELESAI     // unused until Level 5, kept for enum completeness
+  DIKEMBALIKAN        // unused until Level 6, kept for enum completeness
+}
+
+enum DiscountType {
+  VOUCHER
+  PROMO
+}
+
+enum DiscountKind {
+  PERCENT
+  FLAT
+}
+
+enum WalletTxType {
+  TOPUP
+  PAYMENT
+}
+
+model User {
+  id           String     @id @default(uuid())
+  username     String     @unique
+  email        String     @unique
+  passwordHash String
+  roles        UserRole[]
+  store        Store?
+  wallet       Wallet?
+  addresses    Address[]
+  cart         Cart?
+  ordersAsBuyer Order[]   @relation("BuyerOrders")
+  createdAt    DateTime   @default(now())
+}
+
+model UserRole {
+  id     String   @id @default(uuid())
+  userId String
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   RoleType
+  @@unique([userId, role])
+}
+
+model Store {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  ownerId   String    @unique
+  owner     User      @relation(fields: [ownerId], references: [id])
+  products  Product[]
+  orders    Order[]
+  createdAt DateTime  @default(now())
+  carts     Cart[]    // Backrelation for Cart
+}
+
+model Product {
+  id          String      @id @default(uuid())
+  storeId     String
+  store       Store       @relation(fields: [storeId], references: [id])
+  name        String
+  description String?
+  price       Int         // Rupiah, integer, no decimals
+  stock       Int         @default(0)
+  isActive    Boolean     @default(true)
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+  createdAt   DateTime    @default(now())
+}
+
+model Wallet {
+  id           String               @id @default(uuid())
+  userId       String               @unique
+  user         User                 @relation(fields: [userId], references: [id])
+  balance      Int                  @default(0)
+  transactions WalletTransaction[]
+}
+
+model WalletTransaction {
+  id        String       @id @default(uuid())
+  walletId  String
+  wallet    Wallet       @relation(fields: [walletId], references: [id])
+  type      WalletTxType
+  amount    Int          // always positive; `type` determines credit/debit
+  note      String?
+  createdAt DateTime     @default(now())
+}
+
+model Address {
+  id            String  @id @default(uuid())
+  userId        String
+  user          User    @relation(fields: [userId], references: [id])
+  label         String?
+  recipientName String
+  phone         String
+  fullAddress   String
+  isDefault     Boolean @default(false)
+}
+
+model Cart {
+  id      String     @id @default(uuid())
+  userId  String     @unique
+  user    User       @relation(fields: [userId], references: [id])
+  storeId String?    // null = empty cart; set on first item, cleared when cart empties
+  store   Store?     @relation(fields: [storeId], references: [id])
+  items   CartItem[]
+}
+
+model CartItem {
+  id        String  @id @default(uuid())
+  cartId    String
+  cart      Cart    @relation(fields: [cartId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  @@unique([cartId, productId])
+}
+
+model Order {
+  id             String                @id @default(uuid())
+  buyerId        String
+  buyer          User                  @relation("BuyerOrders", fields: [buyerId], references: [id])
+  storeId        String
+  store          Store                 @relation(fields: [storeId], references: [id])
+  deliveryMethod DeliveryMethod
+  subtotal       Int
+  discountAmount Int                   @default(0)
+  discountType   DiscountType?
+  discountCode   String?
+  deliveryFee    Int
+  ppn            Int
+  total          Int
+  status         OrderStatus           @default(SEDANG_DIKEMAS)
+  items          OrderItem[]
+  statusHistory  OrderStatusHistory[]
+  createdAt      DateTime              @default(now())
+}
+
+model OrderItem {
+  id                  String  @id @default(uuid())
+  orderId             String
+  order               Order   @relation(fields: [orderId], references: [id])
+  productId           String
+  product             Product @relation(fields: [productId], references: [id])
+  productNameSnapshot String
+  priceSnapshot       Int
+  quantity            Int
+}
+
+model OrderStatusHistory {
+  id        String      @id @default(uuid())
+  orderId   String
+  order     Order       @relation(fields: [orderId], references: [id])
+  status    OrderStatus
+  note      String?
+  changedAt DateTime    @default(now())
+}
+
+model Voucher {
+  id           String       @id @default(uuid())
+  code         String       @unique
+  discountKind DiscountKind
+  value        Int          // % (0-100) if PERCENT, Rupiah if FLAT
+  expiresAt    DateTime
+  usageLimit   Int
+  usageCount   Int          @default(0)
+}
+
+model Promo {
+  id           String       @id @default(uuid())
+  code         String       @unique
+  discountKind DiscountKind
+  value        Int
+  expiresAt    DateTime
+}
+
+model Review {
+  id           String   @id @default(uuid())
+  reviewerName String
+  rating       Int      // 1-5, validated in service layer
+  comment      String   // sanitized before storage AND before render — belt & suspenders
+  createdAt    DateTime @default(now())
+}

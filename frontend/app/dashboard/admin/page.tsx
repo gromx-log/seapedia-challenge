@@ -1,0 +1,46 @@
+"use client";
+
+import React from "react";
+import { ShieldAlert, Terminal, Settings } from "lucide-react";
+
+export default function AdminDashboardPlaceholder() {
+  return (
+    <div className="flex-1 bg-neutral-950 px-4 py-12 flex items-center justify-center">
+      <div className="max-w-md w-full bg-neutral-900 border border-neutral-850 p-8 rounded-3xl text-center space-y-6 relative overflow-hidden shadow-2xl">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-2xl pointer-events-none"></div>
+
+        <div className="flex justify-center">
+          <div className="p-4 bg-amber-950/40 border border-amber-900/40 text-amber-400 rounded-2xl">
+            <ShieldAlert className="w-10 h-10" />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <h1 className="text-2xl font-extrabold text-white font-serif tracking-tight">Admin Dashboard</h1>
+          <span className="inline-block text-[10px] font-bold bg-neutral-950 border border-neutral-800 text-neutral-400 px-2 py-0.5 rounded uppercase tracking-wider">
+            API-Only (Level 6 Deferred)
+          </span>
+        </div>
+
+        <p className="text-sm text-neutral-400 leading-relaxed italic">
+          Voucher and Promo management is strictly backend API-only for this challenge round (Levels 1 to 4). Admin interfaces are deferred to Level 6.
+        </p>
+
+        <div className="border-t border-neutral-850 pt-6 space-y-3 text-left">
+          <div className="flex items-start gap-2.5 text-xs text-neutral-400">
+            <Terminal className="w-4 h-4 text-neutral-500 shrink-0 mt-0.5" />
+            <span>Generate Vouchers using: <code className="bg-neutral-950 px-1.5 py-0.5 rounded text-indigo-400 font-mono">POST /api/admin/vouchers</code></span>
+          </div>
+          <div className="flex items-start gap-2.5 text-xs text-neutral-400">
+            <Terminal className="w-4 h-4 text-neutral-500 shrink-0 mt-0.5" />
+            <span>Generate Promos using: <code className="bg-neutral-950 px-1.5 py-0.5 rounded text-indigo-400 font-mono">POST /api/admin/promos</code></span>
+          </div>
+          <div className="flex items-start gap-2.5 text-xs text-neutral-400">
+            <Settings className="w-4 h-4 text-neutral-500 shrink-0 mt-0.5" />
+            <span>Authorization: Checks active role in JWT cookie is set to <code className="bg-neutral-950 px-1.5 py-0.5 rounded text-neutral-300 font-mono">ADMIN</code></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
