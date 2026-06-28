@@ -276,7 +276,7 @@ export default function LandingPage() {
                           ))}
                         </div>
                       </div>
-                      <p className="text-neutral-400 text-xs leading-relaxed italic mb-3">
+                      <p className="text-neutral-400 text-xs leading-relaxed italic mb-3 break-words whitespace-pre-wrap overflow-hidden">
                         "{rev.comment}"
                       </p>
                       <span className="text-[10px] text-neutral-600 font-semibold uppercase tracking-wider block">

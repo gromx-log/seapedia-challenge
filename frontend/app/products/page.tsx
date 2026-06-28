@@ -110,10 +110,12 @@ export default function ProductsCatalogPage() {
                     {prod.store.name}
                   </Link>
 
-                  {/* Product Name */}
-                  <h3 className="text-lg font-bold text-white mb-2 line-clamp-1 group-hover:text-indigo-300 transition-colors">
-                    {prod.name}
-                  </h3>
+                   {/* Product Name */}
+                  <Link href={`/products/${prod.id}`}>
+                    <h3 className="text-lg font-bold text-white mb-2 line-clamp-1 group-hover:text-indigo-300 hover:underline transition-colors cursor-pointer">
+                      {prod.name}
+                    </h3>
+                  </Link>
 
                   {/* Description */}
                   <p className="text-xs text-neutral-400 line-clamp-2 leading-relaxed mb-6 italic">

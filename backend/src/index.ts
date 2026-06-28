@@ -21,6 +21,7 @@ import buyerOrderRoutes from "./routes/buyerOrderRoutes";
 import buyerDiscountRoutes from "./routes/buyerDiscountRoutes";
 import reportRoutes from "./routes/reportRoutes";
 import adminDiscountRoutes from "./routes/adminDiscountRoutes";
+import sellerOrderRoutes from "./routes/sellerOrderRoutes";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -49,6 +50,7 @@ app.use("/api/products", productRoutes);
 app.use("/api/stores", storeRoutes);
 app.use("/api/seller/store", sellerStoreRoutes);
 app.use("/api/seller/products", sellerProductRoutes);
+app.use("/api/seller/orders", sellerOrderRoutes);
 app.use("/api/buyer/wallet", buyerWalletRoutes);
 app.use("/api/buyer/addresses", buyerAddressRoutes);
 app.use("/api/buyer/cart", buyerCartRoutes);
@@ -67,3 +69,4 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 app.listen(PORT, () => {
   console.log(`[Server] Running on http://localhost:${PORT}`);
 });
+// Nodemon reload trigger comment v2

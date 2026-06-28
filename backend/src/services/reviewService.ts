@@ -33,17 +33,10 @@ export class ReviewService {
   }
 
   static async listReviews() {
-    const reviews = await prisma.review.findMany({
+    return prisma.review.findMany({
       orderBy: {
         createdAt: "desc",
       },
     });
-
-    // Re-sanitize on output to ensure double-layer XSS protection
-    return reviews.map((r) => ({
-      ...r,
-      reviewerName: sanitizeHTML(r.reviewerName),
-      comment: sanitizeHTML(r.comment),
-    }));
   }
 }
