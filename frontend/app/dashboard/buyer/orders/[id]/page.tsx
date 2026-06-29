@@ -259,7 +259,7 @@ export default function BuyerOrderDetailPage({ params }: { params: Promise<{ id:
 
                       <div className="space-y-0.5 text-xs">
                         <span className={`font-bold uppercase tracking-wide block ${isLast ? "text-indigo-400" : "text-neutral-300"}`}>
-                          {history.status}
+                          {history.status.replace(/_/g, " ")}
                         </span>
                         {history.note && (
                           <span className="text-neutral-500 block italic">"{history.note}"</span>

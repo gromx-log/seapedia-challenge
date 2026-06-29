@@ -177,7 +177,7 @@ export default function BuyerDashboardPage() {
                         })}
                       </span>
                       <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded border bg-indigo-950/40 text-indigo-400 border-indigo-900/50">
-                        {order.status}
+                        {order.status.replace(/_/g, " ")}
                       </span>
                     </div>
 
