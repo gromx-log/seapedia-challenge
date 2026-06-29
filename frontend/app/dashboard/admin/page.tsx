@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { ShieldAlert, Users, ShoppingBag, Store, Calendar, Plus, RefreshCw, AlertTriangle, HelpCircle, Truck } from "lucide-react";
+import { ShieldAlert, Users, ShoppingBag, Store, Calendar, Plus, RefreshCw, AlertTriangle, HelpCircle, Truck, Trash2 } from "lucide-react";
 
 interface UserItem {
   id: string;
@@ -243,6 +243,38 @@ export default function AdminDashboard() {
       setError(err.message);
     } finally {
       setDiscountActionLoading(false);
+    }
+  };
+
+  const handleDeleteVoucher = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this voucher?")) return;
+    try {
+      const res = await fetch(`${API_URL}/api/admin/vouchers/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete voucher");
+      alert("Voucher deleted successfully!");
+      await loadDiscountsData();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeletePromo = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this promo?")) return;
+    try {
+      const res = await fetch(`${API_URL}/api/admin/promos/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete promo");
+      alert("Promo deleted successfully!");
+      await loadDiscountsData();
+    } catch (err: any) {
+      alert(err.message);
     }
   };
 
@@ -779,6 +811,7 @@ export default function AdminDashboard() {
                           <th className="pb-3">Value</th>
                           <th className="pb-3 text-center">Usage Count</th>
                           <th className="pb-3">Expires At</th>
+                          <th className="pb-3 text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-neutral-850 text-neutral-300 font-medium">
@@ -793,6 +826,15 @@ export default function AdminDashboard() {
                               {v.usageCount} / {v.usageLimit}
                             </td>
                             <td className="py-2.5 text-neutral-500">{new Date(v.expiresAt).toLocaleDateString("id-ID")}</td>
+                            <td className="py-2.5 text-right">
+                              <button
+                                onClick={() => handleDeleteVoucher(v.id)}
+                                className="p-1.5 hover:bg-rose-950/40 text-rose-500 hover:text-rose-400 rounded-lg transition-colors border border-transparent hover:border-rose-900/35 cursor-pointer"
+                                title="Delete Voucher"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -811,6 +853,7 @@ export default function AdminDashboard() {
                           <th className="pb-3">Type</th>
                           <th className="pb-3">Value</th>
                           <th className="pb-3">Expires At</th>
+                          <th className="pb-3 text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-neutral-850 text-neutral-300 font-medium">
@@ -822,6 +865,15 @@ export default function AdminDashboard() {
                               {p.discountKind === "PERCENT" ? `${p.value}%` : formatCurrency(p.value)}
                             </td>
                             <td className="py-2.5 text-neutral-500">{new Date(p.expiresAt).toLocaleDateString("id-ID")}</td>
+                            <td className="py-2.5 text-right">
+                              <button
+                                onClick={() => handleDeletePromo(p.id)}
+                                className="p-1.5 hover:bg-rose-950/40 text-rose-500 hover:text-rose-400 rounded-lg transition-colors border border-transparent hover:border-rose-900/35 cursor-pointer"
+                                title="Delete Promo"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>

@@ -83,6 +83,18 @@ export class AdminService {
     return promo;
   }
 
+  static async deleteVoucher(id: string) {
+    const voucher = await prisma.voucher.findUnique({ where: { id } });
+    if (!voucher) throw new Error("Voucher not found");
+    return prisma.voucher.delete({ where: { id } });
+  }
+
+  static async deletePromo(id: string) {
+    const promo = await prisma.promo.findUnique({ where: { id } });
+    if (!promo) throw new Error("Promo not found");
+    return prisma.promo.delete({ where: { id } });
+  }
+
   // ==========================================
   // MONITORING ENDPOINTS
   // ==========================================

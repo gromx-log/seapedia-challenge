@@ -337,6 +337,14 @@
           "request": { "method": "GET", "url": "{{BASE_URL}}/api/admin/vouchers/:id" }
         },
         {
+          "name": "Delete Voucher",
+          "request": {
+            "method": "DELETE",
+            "url": "{{BASE_URL}}/api/admin/vouchers/:id",
+            "description": "Permanently deletes a voucher from the database. Existing orders that snapshot this code are unaffected."
+          }
+        },
+        {
           "name": "Create Promo",
           "request": {
             "method": "POST",
@@ -353,6 +361,14 @@
         {
           "name": "Get Promo Detail",
           "request": { "method": "GET", "url": "{{BASE_URL}}/api/admin/promos/:id" }
+        },
+        {
+          "name": "Delete Promo",
+          "request": {
+            "method": "DELETE",
+            "url": "{{BASE_URL}}/api/admin/promos/:id",
+            "description": "Permanently deletes a promo from the database. Existing orders that snapshot this code are unaffected."
+          }
         }
       ]
     },

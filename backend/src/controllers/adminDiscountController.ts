@@ -81,4 +81,24 @@ export class AdminDiscountController {
       return res.status(404).json({ error: error.message || "Promo not found" });
     }
   }
+
+  static async deleteVoucher(req: Request, res: Response) {
+    try {
+      const voucher = await AdminService.deleteVoucher(req.params.id);
+      return res.status(200).json({ message: "Voucher deleted successfully", voucher });
+    } catch (error: any) {
+      const status = error.message === "Voucher not found" ? 404 : 400;
+      return res.status(status).json({ error: error.message || "Failed to delete voucher" });
+    }
+  }
+
+  static async deletePromo(req: Request, res: Response) {
+    try {
+      const promo = await AdminService.deletePromo(req.params.id);
+      return res.status(200).json({ message: "Promo deleted successfully", promo });
+    } catch (error: any) {
+      const status = error.message === "Promo not found" ? 404 : 400;
+      return res.status(status).json({ error: error.message || "Failed to delete promo" });
+    }
+  }
 }

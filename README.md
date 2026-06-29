@@ -71,12 +71,12 @@ Open your browser at `http://localhost:3000` to interact with the web app.
 
 ## Seed Accounts / Demo Credentials
 
-| Account | Username | Password | Role(s) | Notes |
-|---|---|---|---|---|
-| Admin | `admin` | `admin123` | ADMIN | Exclusive role, bypasses role picker |
-| Seller | `seller1` | `seller123` | SELLER | Store: "Toko Seapedia Demo" with preloaded products |
-| Buyer | `buyer1` | `buyer123` | BUYER | Wallet pre-loaded with `Rp 500,000` |
-| Driver | `driver1` | `driver123` | DRIVER | No pre-seeded jobs — appears once a Seller processes an order |
+| Account | Username  | Password    | Role(s) | Notes                                                         |
+| ---------| -----------| -------------| ---------| ---------------------------------------------------------------|
+| Admin   | `admin`   | `admin123`  | ADMIN   | Exclusive role, bypasses role picker                          |
+| Seller  | `seller1` | `seller123` | SELLER  | Store: "Toko Seapedia Demo" with preloaded products           |
+| Buyer   | `buyer1`  | `buyer123`  | BUYER   | Wallet pre-loaded with `Rp 500,000`                           |
+| Driver  | `driver1` | `driver123` | DRIVER  | No pre-seeded jobs — appears once a Seller processes an order |
 
 **Pre-seeded discount codes:**
 
@@ -199,14 +199,14 @@ Every mutating endpoint has a `zod` schema checked before the controller touches
 ## API Endpoints Overview
 
 ### Auth
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| POST | `/api/auth/register` | None | Create account with role(s) |
-| POST | `/api/auth/login` | None | Login; may return `requiresRoleSelection` |
-| POST | `/api/auth/select-role` | Pre-auth token | Exchange for full JWT with chosen active role |
-| POST | `/api/auth/switch-role` | Auth | Change active role in-session |
-| POST | `/api/auth/logout` | Auth | Clear session cookie |
-| GET | `/api/auth/me` | Auth | Current user profile + roles + active role |
+| Method | Path                    | Auth           | Description                                   |
+| --------| -------------------------| ----------------| -----------------------------------------------|
+| POST   | `/api/auth/register`    | None           | Create account with role(s)                   |
+| POST   | `/api/auth/login`       | None           | Login; may return `requiresRoleSelection`     |
+| POST   | `/api/auth/select-role` | Pre-auth token | Exchange for full JWT with chosen active role |
+| POST   | `/api/auth/switch-role` | Auth           | Change active role in-session                 |
+| POST   | `/api/auth/logout`      | Auth           | Clear session cookie                          |
+| GET    | `/api/auth/me`          | Auth           | Current user profile + roles + active role    |
 
 ### Public
 | Method | Path | Auth | Description |
@@ -267,9 +267,11 @@ Every mutating endpoint has a `zod` schema checked before the controller touches
 | POST | `/api/admin/vouchers` | ADMIN | Generate voucher |
 | GET | `/api/admin/vouchers` | ADMIN | List all vouchers |
 | GET | `/api/admin/vouchers/:id` | ADMIN | Voucher detail |
+| DELETE | `/api/admin/vouchers/:id` | ADMIN | Delete voucher |
 | POST | `/api/admin/promos` | ADMIN | Generate promo |
 | GET | `/api/admin/promos` | ADMIN | List all promos |
 | GET | `/api/admin/promos/:id` | ADMIN | Promo detail |
+| DELETE | `/api/admin/promos/:id` | ADMIN | Delete promo |
 
 ### Admin — Monitoring
 | Method | Path | Auth | Description |
@@ -282,10 +284,10 @@ Every mutating endpoint has a `zod` schema checked before the controller touches
 | GET | `/api/admin/monitoring/overdue-orders` | ADMIN | Orders past SLA + `DIKEMBALIKAN` history |
 
 ### Admin — System Clock
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| GET | `/api/admin/system-clock` | ADMIN | Current simulated time |
-| POST | `/api/admin/system-clock/advance` | ADMIN | Advance simulated time + run overdue sweep |
+| Method | Path                              | Auth  | Description                                |
+| --------| -----------------------------------| -------| --------------------------------------------|
+| GET    | `/api/admin/system-clock`         | ADMIN | Current simulated time                     |
+| POST   | `/api/admin/system-clock/advance` | ADMIN | Advance simulated time + run overdue sweep |
 
 ---
 

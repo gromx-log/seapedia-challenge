@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ShoppingBag, MapPin, Truck, Ticket, Receipt, ShieldCheck, AlertTriangle } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 interface CartItem {
   id: string;
@@ -29,6 +30,7 @@ interface Address {
 
 export default function BuyerCheckoutPage() {
   const router = useRouter();
+  const { refreshUser } = useAuth();
   const [cart, setCart] = useState<CartData | null>(null);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState("");
@@ -149,6 +151,9 @@ export default function BuyerCheckoutPage() {
       if (!res.ok) {
         throw new Error(data.error || "Checkout failed");
       }
+
+      // Refresh user balance in context
+      await refreshUser();
 
       // Checkout successful! Redirect to order detail page
       router.push(`/dashboard/buyer/orders/${data.id}`);
