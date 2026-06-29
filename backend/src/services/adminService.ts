@@ -207,11 +207,12 @@ export class AdminService {
   static async getSystemClock() {
     let clock = await prisma.systemClock.findUnique({ where: { id: 1 } });
     if (!clock) {
-      clock = await prisma.systemClock.create({ data: { id: 1, offsetMs: 0 } });
+      clock = await prisma.systemClock.create({ data: { id: 1, offsetMs: 0n } });
     }
-    const simulatedTime = new Date(Date.now() + clock.offsetMs);
+    const offsetMsNum = Number(clock.offsetMs);
+    const simulatedTime = new Date(Date.now() + offsetMsNum);
     return {
-      offsetMs: clock.offsetMs,
+      offsetMs: offsetMsNum,
       simulatedTime,
     };
   }
@@ -221,7 +222,7 @@ export class AdminService {
       throw new Error("Days to advance must be positive");
     }
 
-    const msToAdvance = days * 24 * 60 * 60 * 1000;
+    const msToAdvance = BigInt(days * 24 * 60 * 60 * 1000);
 
     // Update offsetMs
     const clock = await prisma.systemClock.upsert({
@@ -230,7 +231,8 @@ export class AdminService {
       create: { id: 1, offsetMs: msToAdvance },
     });
 
-    const simulatedNow = new Date(Date.now() + clock.offsetMs);
+    const offsetMsNum = Number(clock.offsetMs);
+    const simulatedNow = new Date(Date.now() + offsetMsNum);
 
     // Run SLA Overdue Sweep
     const activeOrders = await prisma.order.findMany({

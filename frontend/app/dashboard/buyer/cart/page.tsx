@@ -14,6 +14,10 @@ interface CartItem {
     name: string;
     price: number;
     stock: number;
+    store?: {
+      id: string;
+      name: string;
+    };
   };
 }
 
@@ -138,6 +142,24 @@ export default function BuyerCartPage() {
   const items = cart?.items || [];
   const cartSubtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
 
+  const groupedItems: {
+    [storeId: string]: {
+      storeName: string;
+      items: CartItem[];
+    };
+  } = {};
+
+  items.forEach((item) => {
+    const store = item.product.store || { id: "unknown", name: "Unknown Store" };
+    if (!groupedItems[store.id]) {
+      groupedItems[store.id] = {
+        storeName: store.name,
+        items: [],
+      };
+    }
+    groupedItems[store.id].items.push(item);
+  });
+
   return (
     <div className="flex-1 bg-neutral-950 px-4 sm:px-6 lg:px-8 py-12">
       <div className="max-w-5xl mx-auto space-y-8">
@@ -176,61 +198,71 @@ export default function BuyerCartPage() {
             {/* Left Column: Cart Items List */}
             <div className="lg:col-span-8 space-y-6">
               
-              {/* Single store Banner (Section 5.2) */}
-              {cart?.store && (
-                <div className="bg-indigo-950/30 border border-indigo-900/50 rounded-2xl p-4 text-xs text-indigo-400 flex items-start gap-2.5">
-                  <Info className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>
-                    Your cart is locked to <Link href={`/stores/${cart.store.id}`} className="font-bold underline">{cart.store.name}</Link>. To buy products from other stores, you must checkout or clear this cart first.
-                  </span>
-                </div>
-              )}
+              {/* Multi-store Banner */}
+              <div className="bg-indigo-950/30 border border-indigo-900/50 rounded-2xl p-4 text-xs text-indigo-400 flex items-start gap-2.5">
+                <Info className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Multi-store shopping enabled!</strong> You can now add products from multiple stores to your cart and check them out all at once.
+                </span>
+              </div>
 
-              {/* Items List */}
-              <div className="space-y-4">
-                {items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="bg-neutral-900 border border-neutral-850 p-6 rounded-3xl flex items-center justify-between hover:border-neutral-800 transition-all duration-200"
-                  >
-                    <div className="space-y-1">
-                      <h3 className="font-bold text-white text-base">{item.product.name}</h3>
-                      <span className="text-xs text-neutral-400 block">{formatCurrency(item.product.price)} / unit</span>
-                      {item.product.stock < item.quantity && (
-                        <span className="text-[10px] text-rose-400 font-semibold uppercase">
-                          Exceeds available stock ({item.product.stock})
-                        </span>
-                      )}
+              {/* Items List Grouped by Store */}
+              <div className="space-y-8">
+                {Object.entries(groupedItems).map(([storeId, group]) => (
+                  <div key={storeId} className="space-y-4">
+                    {/* Store Title Header */}
+                    <div className="flex items-center gap-2 text-indigo-400 font-semibold text-sm pl-2">
+                      <Store className="w-4 h-4" />
+                      <span>{group.storeName}</span>
                     </div>
 
-                    {/* Quantity controls */}
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center border border-neutral-800 rounded-xl bg-neutral-950 overflow-hidden">
-                        <button
-                          disabled={updatingId === item.id}
-                          onClick={() => handleUpdateQty(item.id, item.quantity, -1)}
-                          className="px-3.5 py-1.5 hover:bg-neutral-850 text-neutral-300 font-bold disabled:opacity-50 transition-colors"
+                    <div className="space-y-4">
+                      {group.items.map((item) => (
+                        <div
+                          key={item.id}
+                          className="bg-neutral-900 border border-neutral-850 p-6 rounded-3xl flex items-center justify-between hover:border-neutral-800 transition-all duration-200"
                         >
-                          -
-                        </button>
-                        <span className="px-3 py-1.5 font-bold text-white text-xs">{item.quantity}</span>
-                        <button
-                          disabled={updatingId === item.id || item.quantity >= item.product.stock}
-                          onClick={() => handleUpdateQty(item.id, item.quantity, 1)}
-                          className="px-3.5 py-1.5 hover:bg-neutral-850 text-neutral-300 font-bold disabled:opacity-50 transition-colors"
-                        >
-                          +
-                        </button>
-                      </div>
+                          <div className="space-y-1">
+                            <h3 className="font-bold text-white text-base">{item.product.name}</h3>
+                            <span className="text-xs text-neutral-400 block">{formatCurrency(item.product.price)} / unit</span>
+                            {item.product.stock < item.quantity && (
+                              <span className="text-[10px] text-rose-400 font-semibold uppercase">
+                                Exceeds available stock ({item.product.stock})
+                              </span>
+                            )}
+                          </div>
 
-                      <button
-                        onClick={() => handleRemoveItem(item.id)}
-                        disabled={updatingId === item.id}
-                        className="p-2 border border-neutral-850 hover:border-rose-900 bg-neutral-950 text-neutral-400 hover:text-rose-450 rounded-xl transition-colors cursor-pointer"
-                        title="Remove Item"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                          {/* Quantity controls */}
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center border border-neutral-800 rounded-xl bg-neutral-950 overflow-hidden">
+                              <button
+                                disabled={updatingId === item.id}
+                                onClick={() => handleUpdateQty(item.id, item.quantity, -1)}
+                                className="px-3.5 py-1.5 hover:bg-neutral-850 text-neutral-300 font-bold disabled:opacity-50 transition-colors"
+                              >
+                                -
+                              </button>
+                              <span className="px-3 py-1.5 font-bold text-white text-xs">{item.quantity}</span>
+                              <button
+                                disabled={updatingId === item.id || item.quantity >= item.product.stock}
+                                onClick={() => handleUpdateQty(item.id, item.quantity, 1)}
+                                className="px-3.5 py-1.5 hover:bg-neutral-850 text-neutral-300 font-bold disabled:opacity-50 transition-colors"
+                              >
+                                +
+                              </button>
+                            </div>
+
+                            <button
+                              onClick={() => handleRemoveItem(item.id)}
+                              disabled={updatingId === item.id}
+                              className="p-2 border border-neutral-850 hover:border-rose-900 bg-neutral-950 text-neutral-400 hover:text-rose-450 rounded-xl transition-colors cursor-pointer"
+                              title="Remove Item"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}

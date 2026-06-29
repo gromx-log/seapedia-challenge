@@ -170,7 +170,7 @@ export class BuyerService {
   }
 
   // ==========================================
-  // SINGLE STORE CART
+  // MULTI-STORE CART
   // ==========================================
   static async getCart(userId: string) {
     let cart = await prisma.cart.findUnique({
@@ -179,7 +179,16 @@ export class BuyerService {
         store: { select: { id: true, name: true } },
         items: {
           include: {
-            product: { select: { id: true, name: true, price: true, stock: true, isActive: true } },
+            product: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
+                stock: true,
+                isActive: true,
+                store: { select: { id: true, name: true } },
+              },
+            },
           },
         },
       },
@@ -193,7 +202,41 @@ export class BuyerService {
           store: { select: { id: true, name: true } },
           items: {
             include: {
-              product: { select: { id: true, name: true, price: true, stock: true, isActive: true } },
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  price: true,
+                  stock: true,
+                  isActive: true,
+                  store: { select: { id: true, name: true } },
+                },
+              },
+            },
+          },
+        },
+      });
+    }
+
+    // Self-healing migration: if storeId is set on cart, clear it
+    if (cart.storeId) {
+      cart = await prisma.cart.update({
+        where: { id: cart.id },
+        data: { storeId: null },
+        include: {
+          store: { select: { id: true, name: true } },
+          items: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  price: true,
+                  stock: true,
+                  isActive: true,
+                  store: { select: { id: true, name: true } },
+                },
+              },
             },
           },
         },
@@ -218,21 +261,7 @@ export class BuyerService {
 
     let cart = await this.getCart(userId);
 
-    // Enforce the single-store cart rule
-    if (cart.storeId && cart.storeId !== product.storeId) {
-      const currentStore = cart.store?.name || "another store";
-      throw new Error(`Your cart is locked to "${currentStore}". Clear your cart first to shop from other stores.`);
-    }
-
     return prisma.$transaction(async (tx) => {
-      // Set storeId on cart if empty
-      if (!cart.storeId) {
-        await tx.cart.update({
-          where: { id: cart.id },
-          data: { storeId: product.storeId },
-        });
-      }
-
       // Check if item already exists in cart
       const existingItem = await tx.cartItem.findUnique({
         where: {
@@ -329,9 +358,13 @@ export class BuyerService {
   // ==========================================
   static async checkout(
     userId: string,
-    data: { deliveryMethod: "INSTANT" | "NEXT_DAY" | "REGULAR"; discountCode?: string }
+    data: {
+      deliveryMethod?: "INSTANT" | "NEXT_DAY" | "REGULAR";
+      storeDeliveries?: { storeId: string; deliveryMethod: "INSTANT" | "NEXT_DAY" | "REGULAR" }[];
+      discountCode?: string;
+    }
   ) {
-    const { deliveryMethod, discountCode } = data;
+    const { deliveryMethod, storeDeliveries, discountCode } = data;
 
     const cart = await prisma.cart.findUnique({
       where: { userId },
@@ -348,38 +381,67 @@ export class BuyerService {
       throw new Error("Your cart is empty");
     }
 
-    const storeId = cart.storeId;
-    if (!storeId) {
-      throw new Error("Cart store reference is missing");
+    // Group items by storeId
+    const itemsByStore: { [storeId: string]: typeof cart.items } = {};
+    for (const item of cart.items) {
+      const sId = item.product.storeId;
+      if (!itemsByStore[sId]) {
+        itemsByStore[sId] = [];
+      }
+      itemsByStore[sId].push(item);
     }
+
+    const storeIds = Object.keys(itemsByStore);
+
+    // Map store delivery methods
+    const storeDeliveryMethods: { [storeId: string]: "INSTANT" | "NEXT_DAY" | "REGULAR" } = {};
+    if (storeDeliveries) {
+      for (const sd of storeDeliveries) {
+        storeDeliveryMethods[sd.storeId] = sd.deliveryMethod;
+      }
+    }
+
+    const defaultMethod = deliveryMethod || "REGULAR";
 
     return prisma.$transaction(async (tx) => {
       const now = await getNow();
-      // 1. Re-verify products stock and details
-      let subtotal = 0;
-      const orderItemsData = [];
 
-      for (const item of cart.items) {
-        const dbProduct = await tx.product.findUnique({
-          where: { id: item.productId },
-        });
+      // 1. Re-verify products stock and details & calculate subtotals per store
+      const storeSubtotals: { [storeId: string]: number } = {};
+      const orderItemsByStore: { [storeId: string]: any[] } = {};
 
-        if (!dbProduct || !dbProduct.isActive) {
-          throw new Error(`Product "${item.product.name}" is no longer available.`);
+      for (const storeId of storeIds) {
+        let subtotal = 0;
+        const items = itemsByStore[storeId];
+        const orderItemsData = [];
+
+        for (const item of items) {
+          const dbProduct = await tx.product.findUnique({
+            where: { id: item.productId },
+          });
+
+          if (!dbProduct || !dbProduct.isActive) {
+            throw new Error(`Product "${item.product.name}" is no longer available.`);
+          }
+
+          if (dbProduct.stock < item.quantity) {
+            throw new Error(`Insufficient stock for "${dbProduct.name}". Only ${dbProduct.stock} items left.`);
+          }
+
+          subtotal += dbProduct.price * item.quantity;
+          orderItemsData.push({
+            productId: dbProduct.id,
+            productNameSnapshot: dbProduct.name,
+            priceSnapshot: dbProduct.price,
+            quantity: item.quantity,
+          });
         }
 
-        if (dbProduct.stock < item.quantity) {
-          throw new Error(`Insufficient stock for "${dbProduct.name}". Only ${dbProduct.stock} items left.`);
-        }
-
-        subtotal += dbProduct.price * item.quantity;
-        orderItemsData.push({
-          productId: dbProduct.id,
-          productNameSnapshot: dbProduct.name,
-          priceSnapshot: dbProduct.price,
-          quantity: item.quantity,
-        });
+        storeSubtotals[storeId] = subtotal;
+        orderItemsByStore[storeId] = orderItemsData;
       }
+
+      const totalSubtotal = Object.values(storeSubtotals).reduce((sum, s) => sum + s, 0);
 
       // 2. Validate Discount Code (Voucher or Promo)
       let discountKind: "PERCENT" | "FLAT" | null = null;
@@ -425,21 +487,65 @@ export class BuyerService {
         }
       }
 
-      // 3. Compute final pricing elements
-      const pricing = calculatePricing({
-        subtotal,
-        deliveryMethod,
-        discountKind,
-        discountValue,
-      });
+      // Calculate total discount amount on totalSubtotal
+      let totalDiscountAmount = 0;
+      if (discountKind && discountValue) {
+        if (discountKind === "PERCENT") {
+          totalDiscountAmount = Math.floor((totalSubtotal * discountValue) / 100);
+        } else if (discountKind === "FLAT") {
+          totalDiscountAmount = discountValue;
+        }
+      }
+      if (totalDiscountAmount > totalSubtotal) {
+        totalDiscountAmount = totalSubtotal;
+      }
+
+      // Distribute discount proportionally across stores
+      const storeDiscounts: { [storeId: string]: number } = {};
+      let distributedDiscountSum = 0;
+      const storeIdsList = Object.keys(storeSubtotals);
+
+      for (let i = 0; i < storeIdsList.length; i++) {
+        const storeId = storeIdsList[i];
+        const storeSub = storeSubtotals[storeId];
+
+        if (i === storeIdsList.length - 1) {
+          // Last store gets the remainder
+          const remainder = totalDiscountAmount - distributedDiscountSum;
+          storeDiscounts[storeId] = Math.min(remainder, storeSub);
+        } else {
+          const propDiscount = Math.floor((storeSub / totalSubtotal) * totalDiscountAmount);
+          const cappedDiscount = Math.min(propDiscount, storeSub);
+          storeDiscounts[storeId] = cappedDiscount;
+          distributedDiscountSum += cappedDiscount;
+        }
+      }
+
+      // 3. Compute final pricing elements per store
+      const pricingByStore: { [storeId: string]: any } = {};
+      let grandTotal = 0;
+
+      for (const storeId of storeIds) {
+        const sub = storeSubtotals[storeId];
+        const disc = storeDiscounts[storeId] || 0;
+        const method = storeDeliveryMethods[storeId] || defaultMethod;
+        const pricing = calculatePricing({
+          subtotal: sub,
+          deliveryMethod: method,
+          discountKind: disc > 0 ? "FLAT" : null,
+          discountValue: disc > 0 ? disc : 0,
+        });
+        pricingByStore[storeId] = pricing;
+        grandTotal += pricing.total;
+      }
 
       // 4. Validate Wallet Balance
       const wallet = await tx.wallet.findUnique({
         where: { userId },
       });
 
-      if (!wallet || wallet.balance < pricing.total) {
-        throw new Error(`Insufficient wallet balance. Total required is Rp ${pricing.total.toLocaleString("id-ID")}.`);
+      if (!wallet || wallet.balance < grandTotal) {
+        throw new Error(`Insufficient wallet balance. Total required is Rp ${grandTotal.toLocaleString("id-ID")}.`);
       }
 
       // 5. Decrement Stock
@@ -456,7 +562,7 @@ export class BuyerService {
       await tx.wallet.update({
         where: { id: wallet.id },
         data: {
-          balance: { decrement: pricing.total },
+          balance: { decrement: grandTotal },
         },
       });
 
@@ -464,8 +570,8 @@ export class BuyerService {
         data: {
           walletId: wallet.id,
           type: "PAYMENT",
-          amount: pricing.total,
-          note: `Payment for order of ${orderItemsData.length} item(s)`,
+          amount: grandTotal,
+          note: `Payment for multi-store checkout of ${cart.items.length} item(s)`,
           createdAt: now,
         },
       });
@@ -480,37 +586,44 @@ export class BuyerService {
         });
       }
 
-      // 8. Create the Order, OrderItems and OrderStatusHistory together
-      const order = await tx.order.create({
-        data: {
-          buyerId: userId,
-          storeId,
-          deliveryMethod,
-          subtotal: pricing.subtotal,
-          discountAmount: pricing.discountAmount,
-          discountType,
-          discountCode: discountCode || null,
-          deliveryFee: pricing.deliveryFee,
-          ppn: pricing.ppn,
-          total: pricing.total,
-          status: "SEDANG_DIKEMAS",
-          createdAt: now,
-          items: {
-            create: orderItemsData,
-          },
-          statusHistory: {
-            create: {
-              status: "SEDANG_DIKEMAS",
-              note: "Order checked out successfully",
-              changedAt: now,
+      // 8. Create the Orders
+      const createdOrders = [];
+      for (const storeId of storeIds) {
+        const pricing = pricingByStore[storeId];
+        const method = storeDeliveryMethods[storeId] || defaultMethod;
+
+        const order = await tx.order.create({
+          data: {
+            buyerId: userId,
+            storeId,
+            deliveryMethod: method,
+            subtotal: pricing.subtotal,
+            discountAmount: pricing.discountAmount,
+            discountType,
+            discountCode: discountCode || null,
+            deliveryFee: pricing.deliveryFee,
+            ppn: pricing.ppn,
+            total: pricing.total,
+            status: "SEDANG_DIKEMAS",
+            createdAt: now,
+            items: {
+              create: orderItemsByStore[storeId],
+            },
+            statusHistory: {
+              create: {
+                status: "SEDANG_DIKEMAS",
+                note: "Order checked out successfully",
+                changedAt: now,
+              },
             },
           },
-        },
-        include: {
-          items: true,
-          statusHistory: true,
-        },
-      });
+          include: {
+            items: true,
+            statusHistory: true,
+          },
+        });
+        createdOrders.push(order);
+      }
 
       // 9. Reset and clear the cart
       await tx.cartItem.deleteMany({
@@ -522,7 +635,7 @@ export class BuyerService {
         data: { storeId: null },
       });
 
-      return order;
+      return createdOrders;
     });
   }
 

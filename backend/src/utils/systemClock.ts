@@ -12,11 +12,11 @@ export async function getNow(): Promise<Date> {
         where: { id: 1 },
       });
       if (clock) {
-        cachedOffsetMs = clock.offsetMs;
+        cachedOffsetMs = Number(clock.offsetMs);
       } else {
         // Auto-initialize if missing
         await prisma.systemClock.create({
-          data: { id: 1, offsetMs: 0 },
+          data: { id: 1, offsetMs: 0n },
         });
         cachedOffsetMs = 0;
       }

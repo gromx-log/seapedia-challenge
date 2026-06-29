@@ -97,23 +97,24 @@ A user can hold multiple roles simultaneously (e.g., `BUYER` and `SELLER`).
 - **Token Expiry**: Session JWTs expire after **48 hours** (documented, bounded, reasonable for a 2-day build/demo window).
 - **Admin**: Admin accounts are exclusive — they hold only the `ADMIN` role, never combined with others, and never see the role picker.
 
-### 2. Single-Store Cart Rule
-Shopping carts are locked to a single store at a time:
-- Adding an item to an empty cart sets the cart's store lock to that product's store.
-- Adding items from the **same** store succeeds normally.
-- Adding items from a **different** store is rejected with a `409 Conflict` error and a clear UI message: "Your cart is locked to Store X — clear cart to shop elsewhere."
-- Removing the last item from the cart clears the store lock, allowing a new store to be selected.
+### 2. Multi-Store Cart and Checkout System
+Shopping carts are open to products from multiple stores at the same time:
+- Adding items from different stores to the cart succeeds normally.
+- In the Cart page, items are grouped by store in the UI.
+- During checkout, the buyer selects a delivery method individually for each store.
+- On successful checkout, the purchase splits into separate `Order` records (one order per store).
+- Applied discount codes (vouchers/promos) are calculated on the total cart subtotal and then distributed proportionally across the orders.
 
 ### 3. Checkout Pricing & Calculation Order
-Checkout pricing strictly follows this order:
-1. **Subtotal**: Sum of (price × quantity) for all cart items.
-2. **Discount**: Applied from the validated Voucher or Promo code against the subtotal (capped so it never exceeds the subtotal).
-3. **Delivery Fee**: Added based on the selected method (flat rate, not discounted, not taxed):
+Checkout pricing for each store's order strictly follows this order:
+1. **Subtotal**: Sum of (price × quantity) for the store's order items.
+2. **Distributed Discount**: The portion of the global discount code distributed proportionally based on this store's subtotal relative to the total cart subtotal (capped so it never exceeds the store's subtotal).
+3. **Delivery Fee**: Added based on the store's selected method (flat rate, not discounted, not taxed):
    - `INSTANT`: Rp 15,000
    - `NEXT_DAY`: Rp 8,000
    - `REGULAR`: Rp 5,000
-4. **PPN (12%)**: Calculated as `round(0.12 × (subtotal − discountAmount))`. Applies to the post-discount subtotal **only** — delivery fee is excluded from the tax base.
-5. **Total**: `(subtotal − discountAmount) + deliveryFee + PPN`.
+4. **PPN (12%)**: Calculated as `round(0.12 × (subtotal − distributedDiscount))`. Applies to the post-discount subtotal **only** — delivery fee is excluded from the tax base.
+5. **Total**: `(subtotal − distributedDiscount) + deliveryFee + PPN`.
 
 ### 4. Discount Combination Rule
 **Voucher and Promo cannot be combined.** A checkout request accepts a single `discountCode`. The backend looks up the code first in the Voucher table (which takes precedence if both exist), then in the Promo table.
@@ -241,7 +242,7 @@ Every mutating endpoint has a `zod` schema checked before the controller touches
 | PATCH | `/api/buyer/addresses/:id` | BUYER | Update address |
 | DELETE | `/api/buyer/addresses/:id` | BUYER | Delete address |
 | GET | `/api/buyer/cart` | BUYER | Cart summary |
-| POST | `/api/buyer/cart/items` | BUYER | Add item (single-store rule enforced) |
+| POST | `/api/buyer/cart/items` | BUYER | Add item to multi-store cart |
 | PATCH | `/api/buyer/cart/items/:id` | BUYER | Update quantity |
 | DELETE | `/api/buyer/cart/items/:id` | BUYER | Remove item |
 | DELETE | `/api/buyer/cart` | BUYER | Clear cart |
@@ -299,9 +300,9 @@ Full flow to rehearse before submission (covers all 7 levels):
 2. **Register**: Create a new buyer account at `/register`.
 3. **Login + Role Select**: Login with the new buyer account; if multi-role, select BUYER at `/select-role`.
 4. **Buyer top-up**: Dashboard → Wallet → Top Up.
-5. **Add to cart**: Browse catalog → add a product from `seller1`'s store.
-6. **Single-store test**: Try adding a product from a different store (confirm rejection message).
-7. **Checkout**: Apply voucher `SEAPEDIA10`, select delivery method, confirm checkout summary shows subtotal / discount / delivery fee / PPN 12% / total.
+5. **Add to cart**: Browse catalog → add a product from `seller1`'s store, then add a product from another store.
+6. **Multi-store display**: Go to the Cart page and verify items are grouped under their respective store names.
+7. **Checkout**: Apply voucher `SEAPEDIA10`, select a delivery method for each store, confirm checkout summary shows proportional discount / delivery fee / PPN 12% / total.
 8. **View order**: See order in `Sedang Dikemas` status with timestamp.
 9. **Seller processes order**: Login as `seller1` → Dashboard → Orders → process the order → status moves to `Menunggu Pengirim`.
 10. **Driver takes job**: Login as `driver1` → Dashboard → Available Jobs → Accept → status moves to `Sedang Dikirim`.

@@ -230,6 +230,6 @@ model DeliveryJob {
 // Single-row table for simulating clock
 model SystemClock {
   id        Int      @id @default(1)
-  offsetMs  Int      @default(0)
+  offsetMs  BigInt   @default(0)
   updatedAt DateTime @updatedAt
 }

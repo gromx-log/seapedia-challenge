@@ -3,15 +3,20 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ShoppingBag, MapPin, Truck, Ticket, Receipt, ShieldCheck, AlertTriangle } from "lucide-react";
+import { ArrowLeft, ShoppingBag, MapPin, Truck, Ticket, Receipt, ShieldCheck, AlertTriangle, Store } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 interface CartItem {
   id: string;
   quantity: number;
   product: {
+    id: string;
     name: string;
     price: number;
+    store?: {
+      id: string;
+      name: string;
+    };
   };
 }
 
@@ -34,7 +39,7 @@ export default function BuyerCheckoutPage() {
   const [cart, setCart] = useState<CartData | null>(null);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState("");
-  const [deliveryMethod, setDeliveryMethod] = useState<"INSTANT" | "NEXT_DAY" | "REGULAR">("REGULAR");
+  const [storeDeliveryMethods, setStoreDeliveryMethods] = useState<{ [storeId: string]: "INSTANT" | "NEXT_DAY" | "REGULAR" }>({});
   
   // Discount States
   const [discountCode, setDiscountCode] = useState("");
@@ -58,6 +63,16 @@ export default function BuyerCheckoutPage() {
       if (cartRes.ok) {
         const cartData = await cartRes.json();
         setCart(cartData);
+
+        // Initialize store delivery methods to REGULAR for each store in the cart
+        const initialMethods: { [storeId: string]: "INSTANT" | "NEXT_DAY" | "REGULAR" } = {};
+        cartData.items.forEach((item: any) => {
+          const storeId = item.product.store?.id || "unknown";
+          if (!initialMethods[storeId]) {
+            initialMethods[storeId] = "REGULAR";
+          }
+        });
+        setStoreDeliveryMethods(initialMethods);
       }
 
       // 2. Fetch Addresses
@@ -137,11 +152,16 @@ export default function BuyerCheckoutPage() {
     setSubmitting(true);
 
     try {
+      const storeDeliveries = Object.entries(storeDeliveryMethods).map(([storeId, deliveryMethod]) => ({
+        storeId,
+        deliveryMethod,
+      }));
+
       const res = await fetch(`${API_URL}/api/buyer/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          deliveryMethod,
+          storeDeliveries,
           discountCode: appliedCode || undefined,
         }),
         credentials: "include",
@@ -155,8 +175,12 @@ export default function BuyerCheckoutPage() {
       // Refresh user balance in context
       await refreshUser();
 
-      // Checkout successful! Redirect to order detail page
-      router.push(`/dashboard/buyer/orders/${data.id}`);
+      // Checkout successful! Redirect to order detail page or statements page
+      if (data.ids && data.ids.length > 1) {
+        router.push(`/dashboard/buyer/orders`);
+      } else {
+        router.push(`/dashboard/buyer/orders/${data.id}`);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -183,25 +207,82 @@ export default function BuyerCheckoutPage() {
     );
   }
 
-  // 1. Calculate pricing breakdown locally for preview
-  const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  // 1. Group cart items by store
+  const groupedItems: {
+    [storeId: string]: {
+      storeName: string;
+      items: CartItem[];
+    };
+  } = {};
+
+  cartItems.forEach((item) => {
+    const store = item.product.store || { id: "unknown", name: "Unknown Store" };
+    if (!groupedItems[store.id]) {
+      groupedItems[store.id] = {
+        storeName: store.name,
+        items: [],
+      };
+    }
+    groupedItems[store.id].items.push(item);
+  });
+
+  // Calculate pricing breakdown per store
+  const storeSubtotals: { [storeId: string]: number } = {};
+  Object.entries(groupedItems).forEach(([storeId, group]) => {
+    storeSubtotals[storeId] = group.items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  });
+
+  const subtotal = Object.values(storeSubtotals).reduce((sum, s) => sum + s, 0);
   
-  let discountAmount = 0;
+  let totalDiscountAmount = 0;
   if (discountKind && discountValue) {
     if (discountKind === "PERCENT") {
-      discountAmount = Math.floor((subtotal * discountValue) / 100);
+      totalDiscountAmount = Math.floor((subtotal * discountValue) / 100);
     } else if (discountKind === "FLAT") {
-      discountAmount = discountValue;
+      totalDiscountAmount = discountValue;
     }
   }
-  if (discountAmount > subtotal) {
-    discountAmount = subtotal;
+  if (totalDiscountAmount > subtotal) {
+    totalDiscountAmount = subtotal;
   }
 
-  const deliveryFee = deliveryMethod === "INSTANT" ? 15000 : deliveryMethod === "NEXT_DAY" ? 8000 : 5000;
-  const postDiscountSubtotal = subtotal - discountAmount;
-  const ppn = Math.round(0.12 * postDiscountSubtotal);
-  const total = postDiscountSubtotal + deliveryFee + ppn;
+  const storeDiscounts: { [storeId: string]: number } = {};
+  let distributedDiscountSum = 0;
+  const storeIdsList = Object.keys(storeSubtotals);
+
+  storeIdsList.forEach((storeId, index) => {
+    const storeSub = storeSubtotals[storeId];
+    if (index === storeIdsList.length - 1) {
+      const remainder = totalDiscountAmount - distributedDiscountSum;
+      storeDiscounts[storeId] = Math.min(remainder, storeSub);
+    } else {
+      const propDiscount = Math.floor((storeSub / subtotal) * totalDiscountAmount);
+      const cappedDiscount = Math.min(propDiscount, storeSub);
+      storeDiscounts[storeId] = cappedDiscount;
+      distributedDiscountSum += cappedDiscount;
+    }
+  });
+
+  const getDeliveryFeeValue = (method: "INSTANT" | "NEXT_DAY" | "REGULAR") => {
+    return method === "INSTANT" ? 15000 : method === "NEXT_DAY" ? 8000 : 5000;
+  };
+
+  let totalDeliveryFee = 0;
+  let totalPpn = 0;
+  let total = 0;
+
+  Object.entries(storeSubtotals).forEach(([storeId, storeSub]) => {
+    const disc = storeDiscounts[storeId] || 0;
+    const method = storeDeliveryMethods[storeId] || "REGULAR";
+    const fee = getDeliveryFeeValue(method);
+    const postDiscountSub = storeSub - disc;
+    const ppn = Math.round(0.12 * postDiscountSub);
+    const storeTotal = postDiscountSub + fee + ppn;
+
+    totalDeliveryFee += fee;
+    totalPpn += ppn;
+    total += storeTotal;
+  });
 
   const currentAddress = addresses.find((a) => a.id === selectedAddressId);
 
@@ -278,38 +359,60 @@ export default function BuyerCheckoutPage() {
               )}
             </div>
 
-            {/* Delivery Method Selector */}
-            <div className="bg-neutral-900 border border-neutral-850 p-6 rounded-3xl space-y-4">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                <Truck className="w-4 h-4 text-blue-400" />
-                Delivery Method
-              </h3>
+            {/* Delivery Method Selector per Store */}
+            <div className="space-y-6">
+              {Object.entries(groupedItems).map(([storeId, group]) => {
+                const selectedMethod = storeDeliveryMethods[storeId] || "REGULAR";
+                return (
+                  <div key={storeId} className="bg-neutral-900 border border-neutral-850 p-6 rounded-3xl space-y-4">
+                    <div className="flex items-center gap-2 text-indigo-400 font-semibold text-sm">
+                      <Store className="w-4 h-4" />
+                      <span>Delivery for: {group.storeName}</span>
+                    </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {[
-                  { id: "REGULAR", label: "Regular Delivery", fee: 5000, desc: "Takes 3-5 working days" },
-                  { id: "NEXT_DAY", label: "Next Day Service", fee: 8000, desc: "Delivered next morning" },
-                  { id: "INSTANT", label: "Instant Delivery", fee: 15000, desc: "Arrives in 1-2 hours" },
-                ].map((opt) => {
-                  const isSelected = deliveryMethod === opt.id;
-                  return (
-                    <button
-                      type="button"
-                      key={opt.id}
-                      onClick={() => setDeliveryMethod(opt.id as any)}
-                      className={`flex flex-col text-left p-4 border rounded-2xl transition-all duration-200 gap-1.5 ${
-                        isSelected
-                          ? "bg-blue-950/40 border-blue-500 text-blue-400"
-                          : "bg-neutral-950 border-neutral-850 text-neutral-400 hover:border-neutral-700"
-                      }`}
-                    >
-                      <span className="text-xs font-bold text-white uppercase">{opt.label}</span>
-                      <span className="text-[10px] text-neutral-400">{opt.desc}</span>
-                      <span className="text-xs font-extrabold mt-2 text-indigo-400">{formatCurrency(opt.fee)}</span>
-                    </button>
-                  );
-                })}
-              </div>
+                    {/* Group Items Snapshot */}
+                    <div className="pl-6 space-y-2 border-l border-neutral-800">
+                      {group.items.map((item) => (
+                        <div key={item.id} className="text-xs text-neutral-400 flex justify-between">
+                          <span>{item.product.name} (x{item.quantity})</span>
+                          <span>{formatCurrency(item.product.price * item.quantity)}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                      {[
+                        { id: "REGULAR", label: "Regular Delivery", fee: 5000, desc: "Takes 3-5 working days" },
+                        { id: "NEXT_DAY", label: "Next Day Service", fee: 8000, desc: "Delivered next morning" },
+                        { id: "INSTANT", label: "Instant Delivery", fee: 15000, desc: "Arrives in 1-2 hours" },
+                      ].map((opt) => {
+                        const isSelected = selectedMethod === opt.id;
+                        return (
+                          <button
+                            type="button"
+                            key={opt.id}
+                            onClick={() => {
+                              setStoreDeliveryMethods((prev) => ({
+                                ...prev,
+                                [storeId]: opt.id as any,
+                              }));
+                            }}
+                            className={`flex flex-col text-left p-4 border rounded-2xl transition-all duration-200 gap-1.5 ${
+                              isSelected
+                                ? "bg-blue-950/40 border-blue-500 text-blue-400"
+                                : "bg-neutral-950 border-neutral-850 text-neutral-400 hover:border-neutral-700"
+                            }`}
+                          >
+                            <span className="text-xs font-bold text-white uppercase">{opt.label}</span>
+                            <span className="text-[10px] text-neutral-400">{opt.desc}</span>
+                            <span className="text-xs font-extrabold mt-2 text-indigo-400">{formatCurrency(opt.fee)}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Discount Code Card */}
@@ -366,21 +469,21 @@ export default function BuyerCheckoutPage() {
                 <span className="text-neutral-200">{formatCurrency(subtotal)}</span>
               </div>
 
-              {discountAmount > 0 && (
+              {totalDiscountAmount > 0 && (
                 <div className="flex justify-between text-purple-400 font-medium">
                   <span>Discount ({appliedCode})</span>
-                  <span>-{formatCurrency(discountAmount)}</span>
+                  <span>-{formatCurrency(totalDiscountAmount)}</span>
                 </div>
               )}
 
               <div className="flex justify-between">
                 <span>Delivery Fee</span>
-                <span className="text-neutral-200">{formatCurrency(deliveryFee)}</span>
+                <span className="text-neutral-200">{formatCurrency(totalDeliveryFee)}</span>
               </div>
 
               <div className="flex justify-between">
                 <span>PPN (12%)</span>
-                <span className="text-neutral-200">{formatCurrency(ppn)}</span>
+                <span className="text-neutral-200">{formatCurrency(totalPpn)}</span>
               </div>
             </div>
 

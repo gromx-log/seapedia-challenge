@@ -4,7 +4,13 @@ import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 import { z } from "zod";
 
 const checkoutSchema = z.object({
-  deliveryMethod: z.enum(["INSTANT", "NEXT_DAY", "REGULAR"]),
+  deliveryMethod: z.enum(["INSTANT", "NEXT_DAY", "REGULAR"]).optional(),
+  storeDeliveries: z.array(
+    z.object({
+      storeId: z.string(),
+      deliveryMethod: z.enum(["INSTANT", "NEXT_DAY", "REGULAR"]),
+    })
+  ).optional(),
   discountCode: z.string().optional(),
 });
 
@@ -19,8 +25,13 @@ export class BuyerCheckoutController {
         return res.status(400).json({ error: "Invalid delivery method or discount code selection" });
       }
 
-      const order = await BuyerService.checkout(authReq.user.userId, parsed.data);
-      return res.status(201).json(order);
+      const orders = await BuyerService.checkout(authReq.user.userId, parsed.data);
+      const primaryOrder = orders[0];
+      return res.status(201).json({
+        id: primaryOrder.id,
+        ids: orders.map((o) => o.id),
+        orders,
+      });
     } catch (error: any) {
       return res.status(400).json({ error: error.message || "Checkout failed" });
     }
