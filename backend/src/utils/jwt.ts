@@ -17,7 +17,7 @@ export interface PreAuthPayload {
 }
 
 export function generateSessionToken(payload: JWTPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "48h" });
 }
 
 export function generatePreAuthToken(payload: PreAuthPayload): string {

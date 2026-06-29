@@ -25,7 +25,7 @@ const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: false, // In local dev we use http (localhost)
   sameSite: "lax" as const,
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  maxAge: 48 * 60 * 60 * 1000, // 48 hours
   path: "/",
 };
 
