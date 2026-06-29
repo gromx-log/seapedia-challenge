@@ -198,13 +198,7 @@ export default function BuyerCartPage() {
             {/* Left Column: Cart Items List */}
             <div className="lg:col-span-8 space-y-6">
               
-              {/* Multi-store Banner */}
-              <div className="bg-indigo-950/30 border border-indigo-900/50 rounded-2xl p-4 text-xs text-indigo-400 flex items-start gap-2.5">
-                <Info className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>
-                  <strong>Multi-store shopping enabled!</strong> You can now add products from multiple stores to your cart and check them out all at once.
-                </span>
-              </div>
+
 
               {/* Items List Grouped by Store */}
               <div className="space-y-8">
